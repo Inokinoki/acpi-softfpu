@@ -83,19 +83,13 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             
             // Both two are in the normal class
             if (ISNO(Arg0) && ISNO(Arg1)) {
-                if (Local2 > Local3) {  // Arg0.exp > Arg1.exp
-                    Local1 = SHFT(Local1, Local2 - Local3)
+                if (Local2 > Local3) {
+                    Local4 = ((Local4 << 1) + ((Local5 << 1) >> (Local2 - Local3)))
                 } else {
-                    if (Local2 < Local3) {   // Arg0.exp < Arg1.exp
-                        Local0 = SHFT(Local0, Local3 - Local2)
-                        Local2 = Local3
-                    }
+                    Local4 = ((Local5 << 1) + ((Local4 << 1) >> (Local2 - Local3)))
+                    Local2 = Local3
                 }
-                Local0 += Local1    // Arg0.frac += Arg1.frac
-                if (Local0 > 0x7fffff) { // check overflow
-                    Local0 = SHFT(Local0, 1)
-                    Local2 += 1
-                }
+                
                 Return (GENF(Local0, Local2, Local4))
             }
             if (ISNA(Arg0) || ISNA(Arg1)) {
