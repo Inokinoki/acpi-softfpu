@@ -2,6 +2,14 @@
 DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
 {
     Device (SFPU) {         // SOFTFPU
+        // Float classes
+        Name (NORM, 0x00)
+        Name (UNCL, 0x01)   // UNCLASSIFIED
+        Name (CLS0, 0x02)   // ZERO
+        Name (CLSI, 0x03)   // INFINITY
+        Name (QNAN, 0x04)   // QNAN
+        Name (SNAN, 0x05)   // SNAN
+
         Method (GENF, 3) {  // Construct float from integer
             /*
             Arg0: sign
@@ -21,6 +29,26 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
 
         Method (INFI, 1) {  // Infinity
             Return ((Arg0 & 0x7fffffff) == 0x7f800000)
+        }
+
+        // Check is infinity
+        Method (ISIN, 1) {
+            Return ((INFI(Arg0)))
+        }
+
+        // Check is NaN
+        Method (ISNA, 1) {
+            Return ((Arg0 & ~(1 << 31)) > 0x7f800000)
+        }
+
+        // Check is zero
+        Method (ISZE, 1) {
+            Return ((Arg0 & 0x7fffffff) == 0)
+        }
+
+        // Check is normal
+        Method (ISNO, 1) {
+            Return ((((Arg0 >> 23) + 1) & 0xff) >= 2)
         }
 
         Method (NEG, 1) {  // Neg
