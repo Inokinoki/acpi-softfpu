@@ -38,6 +38,67 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
         Method (SIGN, 1) {  // Extract sign
             Return (Arg0 >> 31)
         }
+
+        Method (FADD, 2) {   // Add 2 floats
+            // Extract reach parts
+            Local0 = SIGN(Arg0)
+            Local1 = SIGN(Arg1)
+
+            Local2 = EXP(Arg0)
+            Local3 = EXP(Arg1)
+
+            Local4 = FRAC(Arg0)
+            Local5 = FRAC(Arg1)
+
+            // Local6 = CLS(Arg0)
+            // Local7 = CLS(Arg1)
+            
+            // Both two are in the normal class
+            if (Local2 > Local3) {  // Arg0.exp > Arg1.exp
+                Local1 = SHFT(Local1, Local2 - Local3)
+            } else {
+                if (Local2 < Local3) {   // Arg0.exp < Arg1.exp
+                    Local0 = SHFT(Local0, Local3 - Local2)
+                    Local2 = Local3
+                }
+            }
+            Local0 += Local1    // Arg0.frac += Arg1.frac
+            // if (Local0 ) // TODO: check overflow
+            Return GENF(Local0, Local2, Local4)
+
+
+        }
+
+        Method (SHFT, 2) {
+            Local0 = 0
+            Local1 = 0
+            Local2 = 0
+
+            if (Arg1 == 0) {
+                Local0 = Arg0
+            }
+            else {
+                if (Arg1 < 64) {
+                    Local2 = (Zero - Arg1) & 63
+                    Local1 = ((Arg0<< Local2) != 0)
+                    if (Local1) {
+                        Local0 = (Arg0>>Arg1) | One
+                    } else {
+                        Local0 = (Arg0>>Arg1) | Zero
+                    }
+                }
+                else {
+                    Local1 = (Arg0 != 0)
+
+                    if (Local1) {
+                        Local0 = 1
+                    } else {
+                        Local0 = 0
+                    }
+                }
+            }
+            Return (Local0)
+        }
     }
 }
 
