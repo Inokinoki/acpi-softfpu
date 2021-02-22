@@ -82,19 +82,38 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             // Local7 = CLS(Arg1)
             
             // Both two are in the normal class
-            if (Local2 > Local3) {  // Arg0.exp > Arg1.exp
-                Local1 = SHFT(Local1, Local2 - Local3)
-            } else {
-                if (Local2 < Local3) {   // Arg0.exp < Arg1.exp
-                    Local0 = SHFT(Local0, Local3 - Local2)
-                    Local2 = Local3
+            if (ISNO(Arg0) && ISNO(Arg1)) {
+                if (Local2 > Local3) {  // Arg0.exp > Arg1.exp
+                    Local1 = SHFT(Local1, Local2 - Local3)
+                } else {
+                    if (Local2 < Local3) {   // Arg0.exp < Arg1.exp
+                        Local0 = SHFT(Local0, Local3 - Local2)
+                        Local2 = Local3
+                    }
                 }
+                Local0 += Local1    // Arg0.frac += Arg1.frac
+                if (Local0 > 0x7fffff) { // check overflow
+                    Local0 = SHFT(Local0, 1)
+                    Local2 += 1
+                }
+                Return (GENF(Local0, Local2, Local4))
             }
-            Local0 += Local1    // Arg0.frac += Arg1.frac
-            // if (Local0 ) // TODO: check overflow
-            Return GENF(Local0, Local2, Local4)
+            if (ISNA(Arg0) || ISNA(Arg1)) {
+                // Pick a nan
+                // FIXME: temporarily use the Arg0 NaN
+                Return (Arg0)
+            }
 
+            if (ISIN(Arg0) || ISZE(Arg1)) {
+                Return (GENF(Local0, Local2, Local4))
+            }
 
+            if (ISIN(Arg1) || ISZE(Arg0)) {
+                Return (GENF(Local1, Local3, Local5))
+            }
+
+            printf("Although you should not reach here\n")
+            Return (Arg0)
         }
 
         Method (SHFT, 2) {
