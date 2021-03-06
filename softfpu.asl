@@ -75,8 +75,8 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             Local2 = EXP(Arg0)
             Local3 = EXP(Arg1)
 
-            Local4 = FRAC(Arg0)
-            Local5 = FRAC(Arg1)
+            Local4 = FRAC(Arg0) | (1 << 23)
+            Local5 = FRAC(Arg1) | (1 << 23)
 
             // Local6 = CLS(Arg0)
             // Local7 = CLS(Arg1)
@@ -84,12 +84,18 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             // Both two are in the normal class
             if (ISNO(Arg0) && ISNO(Arg1)) {
                 if (Local2 > Local3) {
-                    Local4 = ((Local4 << 1) + ((Local5 << 1) >> (Local2 - Local3)))
+                    Local4 = (Local4 + (Local5 >> (Local2 - Local3)))
                 } else {
-                    Local4 = ((Local5 << 1) + ((Local4 << 1) >> (Local2 - Local3)))
+                    Local4 = (Local5 + (Local4 >> (Local3 - Local2)))
                     Local2 = Local3
                 }
-                
+                if (Local4 >= (1 << (23+1)))
+                {
+                    Local4 >>= 1
+                    Local2 += 1
+                }
+                Local4 = (Local4 >> 1)
+
                 Return (GENF(Local0, Local2, Local4))
             }
             if (ISNA(Arg0) || ISNA(Arg1)) {

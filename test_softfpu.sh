@@ -59,3 +59,15 @@ assert_acpiexec_result \
     $AML_FILE \
     "  [Integer] = FFFFFFFFFFFFFFFF" \
     "exec \SFPU\NEG 0xff800001"
+
+# A simple addition 0.1 + 0.2 = 0.3
+assert_acpiexec_result \
+    $AML_FILE \
+    "  [Integer] = 000000003E99999A" \
+    "exec \SFPU\FADD 0x3dcccccd 0x3e4ccccd"
+
+# A simple addition 12345 + 67890 = 80235
+assert_acpiexec_result \
+    $AML_FILE \
+    "  [Integer] = 00000000479CB580" \
+    "exec \SFPU\FADD 0x4640e400 0x47849900"
