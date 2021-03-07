@@ -72,80 +72,212 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             Local0 = SIGN(Arg0)
             Local1 = SIGN(Arg1)
 
-            Local2 = EXP(Arg0)
-            Local3 = EXP(Arg1)
+            if (Local0 != Local1) {
+                // TODO: subtraction
+                // Return (FSUB(Arg0, Arg1))
+            }
 
-            Local4 = FRAC(Arg0) | (1 << 23)
-            Local5 = FRAC(Arg1) | (1 << 23)
+            Local4 = FRAC(Arg0)
+            Local5 = FRAC(Arg1)
 
-            // Local6 = CLS(Arg0)
-            // Local7 = CLS(Arg1)
-            
-            // Both two are in the normal class
-            if (ISNO(Arg0) && ISNO(Arg1)) {
-                if (Local2 > Local3) {
-                    Local4 = (Local4 + (Local5 >> (Local2 - Local3)))
+            // r_sign: Local3, r_exp: Local6, r_frac: Local7
+            if (EXP(Arg0) - EXP(Arg1) == 0) {
+                if (EXP(Arg0) == 0) {
+                    Return (PACK(Local0, EXP(Arg0), Local4 + Local5))
+                }
+
+                if (EXP(Arg0) == 0xFF) {
+                    if (Local4 | Local5 != 0) {
+                        // Propagate NaN
+                        Return (PNAN(Arg0, Arg1))
+                    } else {
+                        Return (PACK(Local0, EXP(Arg0), Local4 + Local5))
+                    }
+                }
+                Local3 = Local0
+                Local6 = EXP(Arg0)
+                Local7 = 0x01000000 + Local4 + Local5
+
+                if (Local7 & 0x01 == 0 && Local6 < 0xFE) {
+                    Return (PACK(Local3, Local6, Local7 >> 1))
+                }
+
+                Local7 <<= 6
+            } else {
+                Local3 = Local0
+
+                Local4 <<= 6;
+                Local5 <<= 6;
+
+                if (EXP(Arg0) < EXP(Arg1)) {
+                    // a_exp < b_exp
+                    if (EXP(Arg1) == 0xFF) {
+                        if (Local1 != 0) {
+                            // Propagate NaN
+                            Return (PNAN(Arg0, Arg1))
+                        } else {
+                            Return (PACK(Local3, 0xFF, 0))
+                        }
+                    }
+
+                    Local6 = EXP(Arg1)
+
+                    if (EXP(Arg0) != 0) {
+                        // a_frac += 0x20000000;
+                        Local4 += 0x20000000
+                    } else {
+                        Local4 += Local4
+                    }
+
+                    Local4 = SHRT(Local4, EXP(Arg1) - EXP(Arg0))
                 } else {
-                    Local4 = (Local5 + (Local4 >> (Local3 - Local2)))
-                    Local2 = Local3
+                    // a_exp > b_exp
+                    if (EXP(Arg0) == 0xFF) {
+                        if (Local0 != 0) {
+                            // Propagate NaN
+                            Return (PNAN(Arg0, Arg1))
+                        } else {
+                            Return (PACK(Local0, 0xFF, Local4))
+                        }
+                    }
+
+                    Local6 = EXP(Arg0)
+
+                    if (EXP(Arg1) != 0) {
+                        Local5 += 0x20000000
+                    } else {
+                        Local5 += Local5
+                    }
+                    Local5 = SHRT(Local5, EXP(Arg0) - EXP(Arg1))
                 }
-                if (Local4 >= (1 << (23+1)))
-                {
-                    Local4 >>= 1
-                    Local2 += 1
+
+                Local7 = 0x20000000 + Local4 + Local5
+
+                if (Local7 < 0x40000000) {
+                    Local6 -= 1
+                    Local7 <<= 1
                 }
-                Local4 = (Local4 >> 1)
-
-                Return (GENF(Local0, Local2, Local4))
-            }
-            if (ISNA(Arg0) || ISNA(Arg1)) {
-                // Pick a nan
-                // FIXME: temporarily use the Arg0 NaN
-                Return (Arg0)
             }
 
-            if (ISIN(Arg0) || ISZE(Arg1)) {
-                Return (GENF(Local0, Local2, Local4))
-            }
-
-            if (ISIN(Arg1) || ISZE(Arg0)) {
-                Return (GENF(Local1, Local3, Local5))
-            }
-
-            printf("Although you should not reach here\n")
-            Return (Arg0)
+            // Round and pack
+            Return (ROPK(Local3, Local6, Local7))
         }
 
-        Method (SHFT, 2) {
-            Local0 = 0
-            Local1 = 0
-            Local2 = 0
+        Method (ROPK, 3) {
+            // round and pack
+            // round_increment = 0x40
+            Local7 = 0x40
 
-            if (Arg1 == 0) {
-                Local0 = Arg0
-            }
-            else {
-                if (Arg1 < 64) {
-                    Local2 = (Zero - Arg1) & 63
-                    Local1 = ((Arg0<< Local2) != 0)
-                    if (Local1) {
-                        Local0 = (Arg0>>Arg1) | One
-                    } else {
-                        Local0 = (Arg0>>Arg1) | Zero
-                    }
-                }
-                else {
-                    Local1 = (Arg0 != 0)
+            Local0 = Arg0   // sign
+            Local1 = Arg1   // exp
+            Local2 = Arg2   // frac
 
-                    if (Local1) {
-                        Local0 = 1
-                    } else {
-                        Local0 = 0
-                    }
+            // Near Even, do nothing
+
+            Local6 = Local2 & 0x7F  // Rounding bits
+
+            if (Local1 >= 0xFD) {
+                // TODO: implement 0xFD
+                if (Local1 < 0) {
+
                 }
             }
-            Return (Local0)
+
+            Local2 = (Local2 + Local7) >> 7
+
+            if (Local6 ^ 0x40 == 0) {
+                Local2 &= 0x7FFFFFFE
+            } else {
+                Local2 &= 0x7FFFFFFF
+            }
+
+            if (Local2 == 0) {
+                Local1 = 0
+            }
+
+            Return (PACK(Local0, Local1, Local2))
+        }
+
+        Method (PACK, 3) {
+            Return (Arg0 << 31 | (Arg1 << 23) + Arg2)
+        }
+
+        Method (SHRT, 2) {
+            // Arg0: a
+            // Arg1: dist
+            if (Arg1 < 31) {
+                if ((Arg0 << ((0 - Arg1) & 31) & 0xFFFFFFFF) != 0) {
+                    Return ((Arg0 >> Arg1) | 1)
+                }
+                Return ((Arg0 >> Arg1) | 0)
+            } else {
+                if (Arg0 != 0) {
+                    Return (0x01)
+                }
+                Return (0x00)
+            }
+        }
+
+        Method (PNAN, 2) {
+            // Arg0: a
+            // Arg1: b
+
+            Local0 = Arg0 | 0x00400000
+            Local1 = Arg1 | 0x00400000
+
+            Local3 = FRNA(Arg0) // a frac NaN
+            Local4 = FRNA(Arg1) // b frac NaN
+
+            if (Local3 | Local4) {
+                if (Local3) {
+                    if (!Local4) {
+                        if (ISNA(Arg1)) {
+                            Return (Arg1)
+                        } else {
+                            Return (Arg0)
+                        }
+                    }
+                } else {
+                    if (ISNA(Arg0)) {
+                        Return (Arg0)
+                    } else {
+                        Return (Arg1)
+                    }
+                }
+            }
+
+            // Fractions
+            Local5 = FRAC(Arg0)
+            Local6 = FRAC(Arg1)
+
+            if (Local5 < Local6) {
+                Return (Arg1)
+            } else {
+                if (Local5 > Local6) {
+                    Return (Arg0)
+                } else {
+                    if (Arg0 < Arg1) {
+                        Return (Arg0)
+                    } else {
+                        Return (Arg1)
+                    }
+                }
+            }
+        }
+
+        Method (FRNA, 1) {
+            // Arg0: a
+
+            Local0 = ((Arg0 & 0x7FC00000) == 0x7F800000)
+            Local1 = ((Arg0 & 0x003FFFFF) != 0)
+
+            Return (Local0 && Local1)
         }
     }
 }
+
+// Wrong:
+// 001111011 10011001100110011001100
+// Bingo:
+// 001111101 00110011001100110011010
 
