@@ -285,6 +285,8 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             // Local7: Leading zero
             Local7 = CL0(Arg2) - 1
 
+            Local1 -= Local7
+
             if (Local1 < 0xFD && Local7 >= 7) {
                 if (Local2 == 0) {
                     Local1 = 0
@@ -292,7 +294,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                 Return (PACK(Local0, Local1, Local2 << Local7))
             }
 
-            Return (ROPK(Local0, Local1, Local2))
+            Return (ROPK(Local0, Local1, Local2 << Local7))
         }
 
         Name (LUT0, Buffer() {
@@ -421,7 +423,6 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                     Local7 = Local3 - Local2
                 }
             }
-            // FIXME: not ready
             Return (NRPK(Local5, Local6 - 1, Local7))
         }
     }
