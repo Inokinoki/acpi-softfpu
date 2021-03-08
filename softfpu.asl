@@ -425,6 +425,92 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             }
             Return (NRPK(Local5, Local6 - 1, Local7))
         }
+
+        Method (FEQL, 2) {
+            if (ISNA(Arg0) || ISNA(Arg1)) {
+                Return (0)
+            }
+
+            Return (Arg0 == Arg1 || ((Arg0 | Arg1) << 1) == 0)
+        }
+
+        Method (FNEQ, 2) {
+            if (ISNA(Arg0) || ISNA(Arg1)) {
+                Return (0)
+            }
+
+            Return (! FEQL(Arg0, Arg1))
+        }
+
+        Method (FGEQ, 2) {
+            if (ISNA(Arg0) || ISNA(Arg1)) {
+                Return (0)
+            }
+
+            Return (! FLET(Arg0, Arg1))
+        }
+
+        Method (FLEQ, 2) {
+            if (ISNA(Arg0) || ISNA(Arg1)) {
+                Return (0)
+            }
+
+            Local0 = SIGN(Arg0)
+            Local1 = SIGN(Arg1)
+
+            if (Local0 != Local1) {
+                if (((Arg0 | Arg1) << 1) == 0 || Local0 == 1) {
+                    Return (!0)
+                }
+            } else {
+                // Same sign
+                if (Arg0 == Arg1) {
+                    Return (!0)
+                }
+
+                if (Local0 != 0) {
+                    return (Arg0 > Arg1)
+                } else {
+                    return (Arg0 < Arg1)
+                }
+            }
+
+            Return (0)
+        }
+
+        Method (FGRT, 2) {
+            if (ISNA(Arg0) || ISNA(Arg1)) {
+                Return (0)
+            }
+
+            Return (! FLEQ(Arg0, Arg1))
+        }
+
+        Method (FLET, 2) {
+            if (ISNA(Arg0) || ISNA(Arg1)) {
+                Return (0)
+            }
+
+            Local0 = SIGN(Arg0)
+            Local1 = SIGN(Arg1)
+
+            if (Local0 != Local1) {
+                if (((Arg0 | Arg1) << 1) != 0) {
+                    Return (Local0 == 1)
+                }
+            } else {
+                // Same sign
+                if (Arg0 != Arg1) {
+                    if (Local0 != 0) {
+                        return (Arg0 > Arg1)
+                    } else {
+                        return (Arg0 < Arg1)
+                    }
+                }
+            }
+
+            Return (0)
+        }
     }
 }
 
