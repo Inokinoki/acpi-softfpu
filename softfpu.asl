@@ -273,6 +273,157 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
 
             Return (Local0 && Local1)
         }
+
+        Method (NRPK, 3) {  // Norm round and pack
+            // Local0: sign
+            Local0 = Arg0
+            // Local1: exp
+            Local1 = Arg1
+            // Local2: frac
+            Local2 = Arg2
+
+            // Local7: Leading zero
+            Local7 = CL0(Arg2) - 1
+
+            if (Local1 < 0xFD && Local7 >= 7) {
+                if (Local2 == 0) {
+                    Local1 = 0
+                }
+                Return (PACK(Local0, Local1, Local2 << Local7))
+            }
+
+            Return (ROPK(Local0, Local1, Local2))
+        }
+
+        Name (LUT0, Buffer() {
+            8, 7, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4,
+            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        })
+
+        Method (CL0, 1) {
+            Local0 = Arg0
+            Local7 = 0
+
+            if (Local0 < 0x10000) {
+                Local7 = 16
+                Local0 <<= 16
+            }
+            if (Local0 < 0x1000000) {
+                Local7 += 8
+                Local0 <<= 8
+            }
+
+            Return (Local7 + Derefof(LUT0[((Local0 >> 24) & 0xFF)]))
+        }
+
+        Method (FSUB, 2) {
+            // Extract reach parts
+            Local0 = SIGN(Arg0)
+            Local1 = SIGN(Arg1)
+
+            Local2 = FRAC(Arg0)
+            Local3 = FRAC(Arg1)
+
+            Local5 = Local0  // sign
+            Local6 = 0  // exp
+            Local7 = 0  // frac
+
+            Local2 <<= 7
+            Local3 <<= 7
+
+            if (EXP(Arg0) == EXP(Arg1)) {
+                if (EXP(Arg0) == 0xFF) {
+                    if (Local0 | Local1 != 0) {
+                        Return (PNAN(Arg0, Arg1))
+                    } else {
+                        // NaN
+                        Return (PACK(0, 0xFF, 0))
+                    }
+                }
+
+                Local4 = (EXP(Arg0) << 8) | EXP(Arg1)
+                if (EXP(Arg0) == 0) {
+                    Local4 = 0x0101 // Contains a_exp and b_exp
+                }
+
+                if (Local2 > Local3) {
+                    // A Frac is greater
+                    Local6 = (Local4 >> 8)  // a_exp
+                    Local7 = Local2 - Local3
+                } else {
+                    if (Local2 == Local3) {
+                        Return (PACK(0, 0, 0))
+                    } else {
+                        Local5 ^= 1
+                        Local6 = (Local4 & 0xFF)    // b_exp
+                        Local7 = Local3 - Local2
+                    }
+                }
+                Return (NRPK(Local5, Local6 - 1, Local7))
+            } else {
+                if (EXP(Arg0) > EXP(Arg1)) {
+                    if (EXP(Arg0) == 0xFF) {
+                        if (Local2 != 0) {
+                            Return (PNAN(Arg0, Arg1))
+                        } else {
+                            Local5 = Local0
+                            Local6 = EXP(Arg0)
+                            Local7 = Local2
+                        }
+                        Return (PACK(Local5, Local6, Local7))
+                    }
+
+                    if (EXP(Arg1) != 0) {
+                        Local3 += 0x40000000
+                    } else {
+                        Local3 += Local3
+                    }
+
+                    Local3 = SHRT(Local3, EXP(Arg0) - EXP(Arg1))
+                    Local2 |= 0x40000000
+
+                    Local6 = EXP(Arg0)
+                    Local7 = Local2 - Local3
+                } else {
+                    if (EXP(Arg1) == 0xFF) {
+                        if (Local3 != 0) {
+                            Return (PNAN(Arg0, Arg1))
+                        } else {
+                            Return (PACK(Local5 ^ 1, 0xFF, 0))
+                        }
+                    }
+
+                    if (EXP(Arg0) != 0) {
+                        Local2 += 0x40000000
+                    } else {
+                        Local2 += Local2
+                    }
+
+                    Local2 = SHRT(Local2, EXP(Arg1) - EXP(Arg0))
+                    Local3 |= 0x40000000
+
+                    Local5 ^= 1
+                    Local6 = EXP(Arg1)
+                    Local7 = Local3 - Local2
+                }
+            }
+            // FIXME: not ready
+            Return (NRPK(Local5, Local6 - 1, Local7))
+        }
     }
 }
 
