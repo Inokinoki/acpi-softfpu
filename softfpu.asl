@@ -543,8 +543,8 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             0xF0F1, 0xD62C, 0xBFA1, 0xAC77, 0x9C0A, 0x8DDB, 0x8185, 0x76BA,
             0x6D3B, 0x64D4, 0x5D5C, 0x56B1, 0x50B6, 0x4B55, 0x4679, 0x4211
         })
-        Method (ARSR, 1) {
-            // approx_recip_sqrt
+        Method (ARCP, 1) {
+            // approx_recip
             Local0 = (Arg0 >> 27) & 0x0F    // index
             Local1 = (Arg0 >> 11)           // eps
             Local2 = derefof(DK0S[Local0]) - ((derefof(DK1S[Local0]) * Local1) >> 20)
@@ -554,6 +554,39 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             Local6 = (Local4 + (Local4 * Local5) >> 48)
 
             Return (Local6)
+        }
+
+        Name (SK0S, Package() {
+            0xB4C9, 0xFFAB, 0xAA7D, 0xF11C, 0xA1C5, 0xE4C7, 0x9A43, 0xDA29,
+            0x93B5, 0xD0E5, 0x8DED, 0xC8B7, 0x88C6, 0xC16D, 0x8424, 0xBAE1
+        })
+        Name (SK1S, Package() {
+            0xA5A5, 0xEA42, 0x8C21, 0xC62D, 0x788F, 0xAA7F, 0x6928, 0x94B6,
+            0x5CC7, 0x8335, 0x52A6, 0x74E2, 0x4A3E, 0x68FE, 0x432B, 0x5EFD
+        })
+        Method (ARSR, 2) {
+            // approx_recip_sqrt
+            Local0 = ((Arg1 >> 27) & 0x0E) + Arg0  // index
+            Local1 = (Arg1 >> 12) & 0x0000FFFF     // eps
+            Local2 = derefof(SK0S[Local0]) - (((derefof(SK1S[Local0]) * Local1) >> 20) & 0xFFFF)
+            Local3 = Local2 * Local2        // e_sqr_r0
+
+            if (Arg0 == 0) {
+                Local3 <<= 1
+            }
+
+            Local4 = ~((Local3 * Arg1) >> 23) & 0xFFFFFFFF   // Delta
+            Local5 = (Local2 << 16) + ((Local2 * Local4) >> 25)
+            Local6 = ((Local4 * Local4) >> 32) & 0xFFFFFFFF
+            Local7 = (Local5 >> 1) + (Local5 >> 3) - (Local2 << 14)
+            Local7 = Local7 * Local6
+            Local5 += ((Local7 >> 48) & 0xFFFFFFFF)
+
+            if (Local5 & 0x80000000 == 0) {
+                Local5 = 0x80000000
+            }
+
+            Return (Local5)
         }
 
         Method (FMUL, 2) {
@@ -714,6 +747,74 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             Local7 &= 0xFFFFFFFF
 
             Return (ROPK(Local5, Local6, Local7))
+        }
+
+        Method (SQRT, 1) {
+            Local0 = SIGN(Arg0)
+            Local1 = EXP(Arg0)
+            Local2 = FRAC(Arg0)
+
+            // r: Local5 Local6 Local7
+
+            if (Local1 == 0xFF) {
+                if (Local2 != 0) {
+                    Return (PNAN(Arg0, 0))
+                }
+                if (Local0 == 0) {
+                    Return (Arg0)
+                }
+
+                // Invalid
+                Return (PACK(1, 0xFF, 0))
+            }
+
+            if (Local0 != 0) {
+                if (Local1 | Local2 == 0) {
+                    Return (Arg0)
+                }
+                // Invalid
+                Return (PACK(1, 0xFF, 0))
+            }
+
+            if (Local1 == 0) {
+                if (Local2 == 0) {
+                    Return (Arg0)
+                }
+
+                Local1 = NSUE(Local2)
+                Local2 = NSUF(Local2)
+            }
+
+            Local6 = ((Local1 - 0x7f) >> 1) + 0x7E
+            Local1 &= 1
+
+            Local2 = (Local2 | 0x00800000) << 8
+            Local3 = ARSR(Local1, Local2)
+
+            Local7 = Local2 * Local3
+            Local7 = Local7 >> 32
+
+            if (Local1 != 0) {
+                Local7 >>= 1
+            }
+            Local7 += 2
+
+            if ((Local7 & 0x3F) < 2) {
+                Local4 = Local7 >> 2
+                Local4 = Local4 * Local4
+
+                Local7 &= (~0x03)
+
+                if ((Local4 & 0x80000000) != 0) {
+                    Local7 |= 0x01
+                } else {
+                    if (Local4 != 0) {
+                        Local7 -= 1
+                    }
+                }
+            }
+
+            Return (ROPK(0, Local6, Local7))
         }
     }
 }
