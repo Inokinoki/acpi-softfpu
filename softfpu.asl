@@ -87,7 +87,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                 }
 
                 if (EXP(Arg0) == 0xFF) {
-                    if (Local4 | Local5 != 0) {
+                    if ((Local4 | Local5) != 0) {
                         // Propagate NaN
                         Return (PNAN(Arg0, Arg1))
                     } else {
@@ -98,7 +98,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                 Local6 = EXP(Arg0)
                 Local7 = 0x01000000 + Local4 + Local5
 
-                if (Local7 & 0x01 == 0 && Local6 < 0xFE) {
+                if ((Local7 & 0x01) == 0 && Local6 < 0xFE) {
                     Return (PACK(Local3, Local6, Local7 >> 1))
                 }
 
@@ -174,7 +174,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
 
             // Near Even, do nothing
 
-            Local6 = Local2 & 0x7F  // Rounding bits
+            Local6 = (Local2 & 0x7F)  // Rounding bits
 
             if (Local1 >= 0xFD) {
                 // TODO: implement 0xFD
@@ -185,7 +185,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
 
             Local2 = (Local2 + Local7) >> 7
 
-            if (Local6 ^ 0x40 == 0) {
+            if ((Local6 ^ 0x40) == 0) {
                 Local2 &= 0x7FFFFFFE
             } else {
                 Local2 &= 0x7FFFFFFF
@@ -199,7 +199,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
         }
 
         Method (PACK, 3) {
-            Return (Arg0 << 31 | (Arg1 << 23) + Arg2)
+            Return (((Arg0 << 31) | (Arg1 << 23)) + Arg2)
         }
 
         Method (SHRT, 2) {
@@ -222,8 +222,8 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             // Arg0: a
             // Arg1: b
 
-            Local0 = Arg0 | 0x00400000
-            Local1 = Arg1 | 0x00400000
+            Local0 = (Arg0 | 0x00400000)
+            Local1 = (Arg1 | 0x00400000)
 
             Local3 = FRNA(Arg0) // a frac NaN
             Local4 = FRNA(Arg1) // b frac NaN
@@ -349,7 +349,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
 
             if (EXP(Arg0) == EXP(Arg1)) {
                 if (EXP(Arg0) == 0xFF) {
-                    if (Local0 | Local1 != 0) {
+                    if ((Local0 | Local1) != 0) {
                         Return (PNAN(Arg0, Arg1))
                     } else {
                         // NaN
@@ -357,7 +357,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                     }
                 }
 
-                Local4 = (EXP(Arg0) << 8) | EXP(Arg1)
+                Local4 = ((EXP(Arg0) << 8) | EXP(Arg1))
                 if (EXP(Arg0) == 0) {
                     Local4 = 0x0101 // Contains a_exp and b_exp
                 }
@@ -527,9 +527,9 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
         Method (SSRT, 2) {
             // short_shift_right_jam64
             Local0 = Arg0
-            Local1 = (Arg0 >> Arg1) & 0xFFFFFFFF
+            Local1 = ((Arg0 >> Arg1) & 0xFFFFFFFF)
 
-            if (Local0 & ((0x01 << Arg1) - 1) != 0) {
+            if ((Local0 & ((0x01 << Arg1) - 1)) != 0) {
                 Return (Local1 | 1)
             }
             Return (Local1)
@@ -545,7 +545,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
         })
         Method (ARCP, 1) {
             // approx_recip
-            Local0 = (Arg0 >> 27) & 0x0F    // index
+            Local0 = ((Arg0 >> 27) & 0x0F)    // index
             Local1 = (Arg0 >> 11)           // eps
             Local2 = derefof(DK0S[Local0]) - ((derefof(DK1S[Local0]) * Local1) >> 20)
             Local3 = (Local2 * Arg0) >> 7   // Delta
@@ -567,7 +567,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
         Method (ARSR, 2) {
             // approx_recip_sqrt
             Local0 = ((Arg1 >> 27) & 0x0E) + Arg0  // index
-            Local1 = (Arg1 >> 12) & 0x0000FFFF     // eps
+            Local1 = ((Arg1 >> 12) & 0x0000FFFF)   // eps
             Local2 = derefof(SK0S[Local0]) - (((derefof(SK1S[Local0]) * Local1) >> 20) & 0xFFFF)
             Local3 = Local2 * Local2        // e_sqr_r0
 
@@ -575,14 +575,14 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                 Local3 <<= 1
             }
 
-            Local4 = ~((Local3 * Arg1) >> 23) & 0xFFFFFFFF   // Delta
+            Local4 = (~((Local3 * Arg1) >> 23) & 0xFFFFFFFF)   // Delta
             Local5 = (Local2 << 16) + ((Local2 * Local4) >> 25)
-            Local6 = ((Local4 * Local4) >> 32) & 0xFFFFFFFF
+            Local6 = (((Local4 * Local4) >> 32) & 0xFFFFFFFF)
             Local7 = (Local5 >> 1) + (Local5 >> 3) - (Local2 << 14)
             Local7 = Local7 * Local6
             Local5 += ((Local7 >> 48) & 0xFFFFFFFF)
 
-            if (Local5 & 0x80000000 == 0) {
+            if ((Local5 & 0x80000000) == 0) {
                 Local5 = 0x80000000
             }
 
@@ -591,7 +591,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
 
         Method (FMUL, 2) {
             // Local5: r_sign, Local6: r_exp, Local7: r_frac
-            Local5 = SIGN(Arg0) ^ SIGN(Arg1)
+            Local5 = (SIGN(Arg0) ^ SIGN(Arg1))
 
             // Local0: a_exp
             Local0 = EXP(Arg0)
@@ -610,7 +610,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                 }
 
                 // Inf
-                if (EXP(Arg1) | Local3 == 0) {
+                if ((EXP(Arg1) | Local3) == 0) {
                     // Default NaN
                     Return (PACK(Local5, 0xFF, 0))
                 }
@@ -624,7 +624,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                 }
 
                 // Inf
-                if (EXP(Arg0) | Local2 == 0) {
+                if ((EXP(Arg0) | Local2) == 0) {
                     // Default NaN
                     Return (PACK(Local5, 0xFF, 0))
                 }
@@ -665,13 +665,14 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                 Local7 <<= 1
             }
 
-            // FIXME: ROPK always returns a greater number with one
+            printf("%o %o %o", Local5, Local6, Local7)
+
             Return (ROPK(Local5, Local6, Local7))
         }
 
         Method (FDIV, 2) {
             // Local5: r_sign, Local6: r_exp, Local7: r_frac
-            Local5 = SIGN(Arg0) ^ SIGN(Arg1)
+            Local5 = (SIGN(Arg0) ^ SIGN(Arg1))
 
             // Local0: a_exp
             Local0 = EXP(Arg0)
@@ -705,7 +706,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
 
             if (Local1 == 0) {
                 if (Local3 == 0) {
-                    if (Local0 | Local2 == 0) {
+                    if ((Local0 | Local2) == 0) {
                         Return (PACK(Local5, 0xFF, 0))
                     }
                     Return (PACK(Local5, 0xFF, 0))
@@ -738,7 +739,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             // FIXME: might be buggy on 32 bit system
             Local7 = Local2 / Local3
 
-            if (Local7 & 0x3F == 0) {
+            if ((Local7 & 0x3F) == 0) {
                 if (Local7 * Local3 != Local2) {
                     Local7 |= 0x01
                 }
@@ -769,7 +770,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             }
 
             if (Local0 != 0) {
-                if (Local1 | Local2 == 0) {
+                if ((Local1 | Local2) == 0) {
                     Return (Arg0)
                 }
                 // Invalid
