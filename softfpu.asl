@@ -535,6 +535,27 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             Return (Local1)
         }
 
+        Name (DK0S, Package() {
+            0xFFC4, 0xF0BE, 0xE363, 0xD76F, 0xCCAD, 0xC2F0, 0xBA16, 0xB201,
+            0xAA97, 0xA3C6, 0x9D7A, 0x97A6, 0x923C, 0x8D32, 0x887E, 0x8417
+        })
+        Name (DK1S, Package() {
+            0xF0F1, 0xD62C, 0xBFA1, 0xAC77, 0x9C0A, 0x8DDB, 0x8185, 0x76BA,
+            0x6D3B, 0x64D4, 0x5D5C, 0x56B1, 0x50B6, 0x4B55, 0x4679, 0x4211
+        })
+        Method (ARSR, 1) {
+            // approx_recip_sqrt
+            Local0 = (Arg0 >> 27) & 0x0F    // index
+            Local1 = (Arg0 >> 11)           // eps
+            Local2 = derefof(DK0S[Local0]) - ((derefof(DK1S[Local0]) * Local1) >> 20)
+            Local3 = (Local2 * Arg0) >> 7   // Delta
+            Local4 = (Local2 << 16) + ((Local2 * Local3) >> 24)
+            Local5 = (Local3 * Local3) >> 32
+            Local6 = (Local4 + (Local4 * Local5) >> 48)
+
+            Return (Local6)
+        }
+
         Method (FMUL, 2) {
             // Local5: r_sign, Local6: r_exp, Local7: r_frac
             Local5 = SIGN(Arg0) ^ SIGN(Arg1)
@@ -612,6 +633,86 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             }
 
             // FIXME: ROPK always returns a greater number with one
+            Return (ROPK(Local5, Local6, Local7))
+        }
+
+        Method (FDIV, 2) {
+            // Local5: r_sign, Local6: r_exp, Local7: r_frac
+            Local5 = SIGN(Arg0) ^ SIGN(Arg1)
+
+            // Local0: a_exp
+            Local0 = EXP(Arg0)
+            // Local1: b_exp
+            Local1 = EXP(Arg1)
+
+            // Local2: a_frac
+            Local2 = FRAC(Arg0)
+            // Local3: b_frac
+            Local3 = FRAC(Arg1)
+
+            if (Local0 == 0xFF) {
+                if (Local2 != 0) {
+                    Return (PNAN(Arg0, Arg1))
+                }
+                if (Local1 == 0xFF) {
+                    if (Local3 != 0) {
+                        Return (PNAN(Arg0, Arg1))
+                    } else {
+                        Return (PACK(Local5, 0xFF, 0))
+                    }
+                }
+                Return (PACK(Local5, 0xFF, 0))
+            }
+            if (Local1 == 0xFF) {
+                if (Local3 != 0) {
+                    Return (PNAN(Arg0, Arg1))
+                }
+                Return (PACK(Local5, 0, 0))
+            }
+
+            if (Local1 == 0) {
+                if (Local3 == 0) {
+                    if (Local0 | Local2 == 0) {
+                        Return (PACK(Local5, 0xFF, 0))
+                    }
+                    Return (PACK(Local5, 0xFF, 0))
+                }
+
+                Local1 = NSUE(Local3)
+                Local3 = NSUF(Local3)
+            }
+
+            if (Local0 == 0) {
+                if (Local2 == 0) {
+                    // 0
+                    Return (PACK(Local5, 0, 0))
+                }
+
+                Local0 = NSUE(Local2)
+                Local2 = NSUF(Local2)
+            }
+
+            Local6 = Local0 - Local1 + 0x7E
+            Local2 |= 0x00800000
+            Local3 |= 0x00800000
+
+            if (Local2 < Local3) {
+                Local6 -= 1
+                Local2 <<= 31
+            } else {
+                Local2 <<= 30
+            }
+            // FIXME: might be buggy on 32 bit system
+            Local7 = Local2 / Local3
+
+            if (Local7 & 0x3F == 0) {
+                if (Local7 * Local3 != Local2) {
+                    Local7 |= 0x01
+                }
+            }
+
+            Local7 &= 0xFFFFFFFF
+
             Return (ROPK(Local5, Local6, Local7))
         }
     }
