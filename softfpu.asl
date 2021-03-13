@@ -854,6 +854,46 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             Local7 &= (~Local6)
             Return (Local7)
         }
+
+        Method (F2IN, 1) {
+            Local0 = RINT(Arg0)
+
+            Local7 = 0
+
+            if (ISNA(Local0)) {
+                Return (0x7FFFFFFF)
+            } else {
+                if (ISIN(Local0)) {
+                    if (SIGN(Local0) != 0) {
+                        Return (0xFFFFFFFF)
+                    }
+                    Return (0x7FFFFFFF)
+                } else {
+                    if (Local0 == 0 || Local0 == 0x80000000) {
+                        Return (0)
+                    }
+
+                    Local1 = SIGN(Local0)
+                    Local2 = EXP(Local0)
+                    Local3 = FRAC(Local0)
+
+                    Local3 |= 0x800000
+
+                    if (Local2 < 0x7F) {
+                        // Too tiny, must be 0
+                        Return (0)
+                    }
+
+                    Local4 = Local2 - 0x7F
+                    if (Local1 == 0) {
+                        Return (Local3 >> (23 - Local4))
+                    } else {
+                        Return (0x80000000 | 
+                            ((Local3 >> (23 - Local4)) - 1))
+                    }
+                }
+            }
+        }
     }
 }
 
