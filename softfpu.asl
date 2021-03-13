@@ -894,6 +894,26 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                 }
             }
         }
+
+        Method (IN2F, 1) {
+            if (Arg0 == 0) {
+                Return (0)
+            }
+
+            Local2 = 0
+            if ((Arg0 & 0x80000000) == 0) {
+                // Positive
+                Local2 = Arg0
+            } else {
+                // Negative
+                Local2 = ((~Arg0) & 0xFFFFFFFF) + 1
+            }
+            Local7 = CL0(Local2)
+            Local6 = 32 - Local7 - 1
+            Local1 = 0x7F + Local6
+            Local0 = ((Arg0 & 0x80000000) >> 31)
+            Return (PACK(Local0, Local1, (Local2 << (24 - Local6 - 1)) & 0x7FFFFF))
+        }
     }
 }
 
