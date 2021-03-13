@@ -665,8 +665,6 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                 Local7 <<= 1
             }
 
-            printf("%o %o %o", Local5, Local6, Local7)
-
             Return (ROPK(Local5, Local6, Local7))
         }
 
