@@ -815,6 +815,45 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
 
             Return (ROPK(0, Local6, Local7))
         }
+
+        Method (RINT, 1) {
+            // Round to int
+            Local0 = SIGN(Arg0)
+            Local1 = EXP(Arg0)
+            Local2 = FRAC(Arg0)
+
+            if (Local1 < 0x7E) {
+                if ((Arg0 << 1) == 0) {
+                    Return (Arg0)
+                }
+
+                Local7 = Arg0 & PACK(1, 0, 0)
+                if (Local2 != 0) {
+                    if (Local1 == 0x7E) {
+                        Local7 |= PACK(0, 0x7F, 0)
+                    }
+                }
+                Return (Local7)
+            }
+
+            if (0x96 <= Local1) {
+                if (Local1 == 0xFF && Local2 != 0) {
+                    Return (PNAN(Arg0, 0))
+                }
+                Return (Arg0)
+            }
+
+            Local5 = (1 << (0x96 - Local1))
+            Local6 = Local5 - 1
+            Local7 = Arg0
+
+            Local7 += (Local5 >> 1)
+            if ((Local7 & Local6) == 0) {
+                Local7 &= (~Local5)
+            }
+            Local7 &= (~Local6)
+            Return (Local7)
+        }
     }
 }
 
