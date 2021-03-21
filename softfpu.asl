@@ -73,8 +73,8 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             Local1 = SIGN(Arg1)
 
             if (Local0 != Local1) {
-                // TODO: subtraction
-                // Return (FSUB(Arg0, Arg1))
+                // Subtraction
+                Return (FSUB(Arg0, Arg1))
             }
 
             Local4 = FRAC(Arg0)
