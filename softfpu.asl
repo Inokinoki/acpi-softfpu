@@ -344,6 +344,78 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             Local6 = 0  // exp
             Local7 = 0  // frac
 
+            if (Local2 == 0 && EXP(Arg0) == 0) {
+                if (Local3 == 0 && EXP(Arg1) == 0) {
+                    Return (0)
+                }
+                if (Local1 == 0) {
+                    Return (PACK(1, EXP(Arg1), Local3))
+                }
+                Return (PACK(0, EXP(Arg1), Local3))
+            }
+
+            if (EXP(Arg0) == EXP(Arg1)) {
+                if (EXP(Arg0) == 0xFF) {
+                    if ((Local0 | Local1) != 0) {
+                        Return (PNAN(Arg0, Arg1))
+                    } else {
+                        // NaN
+                        Return (PACK(0, 0xFF, 0))
+                    }
+                }
+
+                if (Local3 == Local2) {
+                    Return (PACK(0, 0, 0))
+                }
+
+                Local2 = EXP(Arg0)
+                Local3 = EXP(Arg1)
+
+                if (Local2 != 0) {
+                    Local2 = Local2 - 1
+                }
+
+                if (FRAC(Arg0) < FRAC(Arg1)) {
+                    if (Local5 == 0) {
+                        Local5 = 1
+                    } else {
+                        Local5 = 0
+                    }
+                    Local7 = CL0(FRAC(Arg1) - FRAC(Arg0)) - 8
+                } else {
+                    Local7 = CL0(FRAC(Arg0) - FRAC(Arg1)) - 8
+                }
+
+                if (Local2 < Local7) {
+                    Local7 = Local2
+                    Local6 = 0
+                } else {
+                    Local6 = Local2 - Local7
+                }
+
+                if (FRAC(Arg0) < FRAC(Arg1)) {
+                    Local7 = ((FRAC(Arg1) - FRAC(Arg0)) << Local7)
+                } else {
+                    Local7 = ((FRAC(Arg0) - FRAC(Arg1)) << Local7)
+                }
+                Return (PACK(Local5, Local6, Local7))
+            }
+
+            Return (FSU1(Arg0, Arg1))
+        }
+
+        Method (FSU1, 2) {
+            // Extract reach parts
+            Local0 = SIGN(Arg0)
+            Local1 = SIGN(Arg1)
+
+            Local2 = FRAC(Arg0)
+            Local3 = FRAC(Arg1)
+
+            Local5 = Local0  // sign
+            Local6 = 0  // exp
+            Local7 = 0  // frac
+
             Local2 <<= 7
             Local3 <<= 7
 
