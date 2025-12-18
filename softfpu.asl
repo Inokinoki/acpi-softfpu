@@ -2,6 +2,9 @@
 DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
 {
     Device (SFPU) {         // SOFTFPU
+        // Required for iasl to compile a Device object
+        Name (_HID, "INOK0001")
+
         // Float classes
         Name (NORM, 0x00)
         Name (UNCL, 0x01)   // UNCLASSIFIED
@@ -112,7 +115,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                 if (EXP(Arg0) < EXP(Arg1)) {
                     // a_exp < b_exp
                     if (EXP(Arg1) == 0xFF) {
-                        if (Local1 != 0) {
+                        if (Local5 != 0) {
                             // Propagate NaN
                             Return (PNAN(Arg0, Arg1))
                         } else {
@@ -133,7 +136,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                 } else {
                     // a_exp > b_exp
                     if (EXP(Arg0) == 0xFF) {
-                        if (Local0 != 0) {
+                        if (Local4 != 0) {
                             // Propagate NaN
                             Return (PNAN(Arg0, Arg1))
                         } else {
@@ -503,7 +506,12 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                 Return (0)
             }
 
-            Return (Arg0 == Arg1 || ((Arg0 | Arg1) << 1) == 0)
+            // Treat inputs as 32-bit bit patterns (avoid sign-extension surprises)
+            Local0 = (Arg0 & 0xFFFFFFFF)
+            Local1 = (Arg1 & 0xFFFFFFFF)
+
+            // Equal bit patterns OR both zeros (+0/-0)
+            Return (Local0 == Local1 || (((Local0 | Local1) & 0x7FFFFFFF) == 0))
         }
 
         Method (FNEQ, 2) {
@@ -531,7 +539,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             Local1 = SIGN(Arg1)
 
             if (Local0 != Local1) {
-                if (((Arg0 | Arg1) << 1) == 0 || Local0 == 1) {
+                if ((((Arg0 | Arg1) & 0x7FFFFFFF) == 0) || Local0 == 1) {
                     Return (!0)
                 }
             } else {
@@ -567,7 +575,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             Local1 = SIGN(Arg1)
 
             if (Local0 != Local1) {
-                if (((Arg0 | Arg1) << 1) != 0) {
+                if (((Arg0 | Arg1) & 0x7FFFFFFF) != 0) {
                     Return (Local0 == 1)
                 }
             } else {
@@ -960,8 +968,8 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                     if (Local1 == 0) {
                         Return (Local3 >> (23 - Local4))
                     } else {
-                        Return (0x80000000 | 
-                            ((Local3 >> (23 - Local4)) - 1))
+                        // Return a signed integer (two's complement) in ACPI Integer form
+                        Return (0 - (Local3 >> (23 - Local4)))
                     }
                 }
             }
