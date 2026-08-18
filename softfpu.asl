@@ -10,8 +10,9 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
         Name (UNCL, 0x01)   // UNCLASSIFIED
         Name (CLS0, 0x02)   // ZERO
         Name (CLSI, 0x03)   // INFINITY
-        Name (QNAN, 0x04)   // QNAN
-        Name (SNAN, 0x05)   // SNAN
+        Name (QNAN, 0x04)   // QNAN class
+        Name (SNAN, 0x05)   // SNAN class
+        Name (NANQ, 0x7FC00000) // default quiet NaN bit pattern
 
         Method (GENF, 3) {  // Construct float from integer
             /*
@@ -76,8 +77,8 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             Local1 = SIGN(Arg1)
 
             if (Local0 != Local1) {
-                // Subtraction
-                Return (FSUB(Arg0, Arg1))
+                // Opposite signs: subtract magnitudes
+                Return (FSU0(Arg0, Arg1))
             }
 
             Local4 = FRAC(Arg0)
@@ -235,16 +236,16 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                 if (Local3) {
                     if (!Local4) {
                         if (ISNA(Arg1)) {
-                            Return (Arg1)
+                            Return (Local1)
                         } else {
-                            Return (Arg0)
+                            Return (Local0)
                         }
                     }
                 } else {
                     if (ISNA(Arg0)) {
-                        Return (Arg0)
+                        Return (Local0)
                     } else {
-                        Return (Arg1)
+                        Return (Local1)
                     }
                 }
             }
@@ -254,15 +255,15 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             Local6 = FRAC(Arg1)
 
             if (Local5 < Local6) {
-                Return (Arg1)
+                Return (Local1)
             } else {
                 if (Local5 > Local6) {
-                    Return (Arg0)
+                    Return (Local0)
                 } else {
                     if (Arg0 < Arg1) {
-                        Return (Arg0)
+                        Return (Local0)
                     } else {
-                        Return (Arg1)
+                        Return (Local1)
                     }
                 }
             }
@@ -336,9 +337,13 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
         }
 
         Method (FSUB, 2) {
-            // Extract reach parts
+            // IEEE subtraction: a - b == a + (-b)
+            Return (FADD(Arg0, MTH3(Arg1)))
+        }
+
+        Method (FSU0, 2) {
+            // Subtract magnitudes (used by FADD when signs differ)
             Local0 = SIGN(Arg0)
-            Local1 = SIGN(Arg1)
 
             Local2 = FRAC(Arg0)
             Local3 = FRAC(Arg1)
@@ -347,23 +352,25 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             Local6 = 0  // exp
             Local7 = 0  // frac
 
+            // |a| == 0: opposite-sign add with a zero is just b
+            // (fixes FADD(+0, x) when x is negative)
             if (Local2 == 0 && EXP(Arg0) == 0) {
+                if (ISNA(Arg1)) {
+                    Return (PNAN(Arg0, Arg1))
+                }
                 if (Local3 == 0 && EXP(Arg1) == 0) {
                     Return (0)
                 }
-                if (Local1 == 0) {
-                    Return (PACK(1, EXP(Arg1), Local3))
-                }
-                Return (PACK(0, EXP(Arg1), Local3))
+                Return (Arg1)
             }
 
             if (EXP(Arg0) == EXP(Arg1)) {
                 if (EXP(Arg0) == 0xFF) {
-                    if ((Local0 | Local1) != 0) {
+                    if ((Local2 | Local3) != 0) {
                         Return (PNAN(Arg0, Arg1))
                     } else {
-                        // NaN
-                        Return (PACK(0, 0xFF, 0))
+                        // inf - inf (same magnitude, opposite original signs)
+                        Return (NANQ)
                     }
                 }
 
@@ -410,7 +417,6 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
         Method (FSU1, 2) {
             // Extract reach parts
             Local0 = SIGN(Arg0)
-            Local1 = SIGN(Arg1)
 
             Local2 = FRAC(Arg0)
             Local3 = FRAC(Arg1)
@@ -424,11 +430,10 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
 
             if (EXP(Arg0) == EXP(Arg1)) {
                 if (EXP(Arg0) == 0xFF) {
-                    if ((Local0 | Local1) != 0) {
+                    if ((Local2 | Local3) != 0) {
                         Return (PNAN(Arg0, Arg1))
                     } else {
-                        // NaN
-                        Return (PACK(0, 0xFF, 0))
+                        Return (NANQ)
                     }
                 }
 
@@ -689,10 +694,9 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                     Return (PNAN(Arg0, Arg1))
                 }
 
-                // Inf
+                // Inf * 0 is invalid
                 if ((EXP(Arg1) | Local3) == 0) {
-                    // Default NaN
-                    Return (PACK(Local5, 0xFF, 0))
+                    Return (NANQ)
                 }
 
                 Return (PACK(Local5, 0xFF, 0))
@@ -703,17 +707,16 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                     Return (PNAN(Arg0, Arg1))
                 }
 
-                // Inf
+                // 0 * Inf is invalid
                 if ((EXP(Arg0) | Local2) == 0) {
-                    // Default NaN
-                    Return (PACK(Local5, 0xFF, 0))
+                    Return (NANQ)
                 }
 
                 Return (PACK(Local5, 0xFF, 0))
             }
 
             if (Local0 == 0) {
-                if (SIGN(Arg0) == 0) {
+                if (Local2 == 0) {
                     Return (PACK(Local5, 0, 0))
                 }
 
@@ -722,7 +725,7 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             }
 
             if (Local1 == 0) {
-                if (SIGN(Arg1) == 0) {
+                if (Local3 == 0) {
                     Return (PACK(Local5, 0, 0))
                 }
 
@@ -770,7 +773,8 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                     if (Local3 != 0) {
                         Return (PNAN(Arg0, Arg1))
                     } else {
-                        Return (PACK(Local5, 0xFF, 0))
+                        // Inf / Inf
+                        Return (NANQ)
                     }
                 }
                 Return (PACK(Local5, 0xFF, 0))
@@ -785,7 +789,8 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
             if (Local1 == 0) {
                 if (Local3 == 0) {
                     if ((Local0 | Local2) == 0) {
-                        Return (PACK(Local5, 0xFF, 0))
+                        // 0 / 0
+                        Return (NANQ)
                     }
                     Return (PACK(Local5, 0xFF, 0))
                 }
@@ -843,16 +848,16 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
                     Return (Arg0)
                 }
 
-                // Invalid
-                Return (PACK(1, 0xFF, 0))
+                // sqrt(-Inf)
+                Return (NANQ)
             }
 
             if (Local0 != 0) {
                 if ((Local1 | Local2) == 0) {
                     Return (Arg0)
                 }
-                // Invalid
-                Return (PACK(1, 0xFF, 0))
+                // sqrt(negative)
+                Return (NANQ)
             }
 
             if (Local1 == 0) {
@@ -897,21 +902,20 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
         }
 
         Method (RINT, 1) {
-            // Round to int
-            Local0 = SIGN(Arg0)
+            // Round to nearest integer, ties to even
             Local1 = EXP(Arg0)
             Local2 = FRAC(Arg0)
 
-            if (Local1 < 0x7E) {
-                if ((Arg0 << 1) == 0) {
+            // |x| < 1.0
+            if (Local1 <= 0x7E) {
+                if ((Arg0 & 0x7FFFFFFF) == 0) {
                     Return (Arg0)
                 }
 
                 Local7 = Arg0 & PACK(1, 0, 0)
-                if (Local2 != 0) {
-                    if (Local1 == 0x7E) {
-                        Local7 |= PACK(0, 0x7F, 0)
-                    }
+                // 0.5 < |x| < 1.0 rounds to ±1; exact ±0.5 ties to 0
+                if ((Local1 == 0x7E) && (Local2 != 0)) {
+                    Local7 |= PACK(0, 0x7F, 0)
                 }
                 Return (Local7)
             }
@@ -937,8 +941,6 @@ DefinitionBlock ("", "SSDT", 2, "INOKI", "RAYTRACE", 0x00000001)
 
         Method (F2IN, 1) {
             Local0 = RINT(Arg0)
-
-            Local7 = 0
 
             if (ISNA(Local0)) {
                 Return (0x7FFFFFFF)
