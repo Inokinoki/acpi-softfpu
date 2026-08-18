@@ -163,7 +163,9 @@ define_tests() {
   expect_u32 "C0C00000" "exec \\SFPU\\FMUL 0x40000000 0xC0400000" "FMUL 2 * -3"
   expect_u32 "00000000" "exec \\SFPU\\FMUL 0x0 0x40000000" "FMUL +0 * 2"
   expect_u32 "80000000" "exec \\SFPU\\FMUL 0x80000000 0x40000000" "FMUL -0 * 2"
-  expect_u32 "00000001" "exec \\SFPU\\FMUL 0x00000001 0x3f800000" "FMUL min-subnormal * 1"
+  # Positive subnormals used to be flushed to zero (sign was checked instead of frac).
+  expect_u32 "00800000" "exec \\SFPU\\FMUL 0x00400000 0x40000000" "FMUL subnormal * 2 -> min normal"
+  expect_u32 "00FFFFFE" "exec \\SFPU\\FMUL 0x007FFFFF 0x40000000" "FMUL max-subnormal * 2"
   expect_u32 "7F800000" "exec \\SFPU\\FMUL 0x7f800000 0x40000000" "FMUL +inf * 2"
   expect_nan "exec \\SFPU\\FMUL 0x7f800000 0x0" "FMUL +inf * 0"
   expect_nan "exec \\SFPU\\FMUL 0x0 0x7f800000" "FMUL 0 * +inf"
@@ -211,17 +213,16 @@ define_tests() {
 }
 
 run_batch() {
-  local batch=""
+  # acpiexec -b is capped at 1023 chars; feed the debugger via stdin instead.
+  local script=""
   local i
   for i in "${!TEST_CMD[@]}"; do
-    if [[ -n "$batch" ]]; then
-      batch+="; "
-    fi
-    batch+="${TEST_CMD[$i]}"
+    script+="${TEST_CMD[$i]}"$'\n'
   done
+  script+="exit"$'\n'
 
   local output
-  if ! output="$("$ACPIEXEC_BIN" -dt -b "$batch" "$AML_FILE" 2>/dev/null)"; then
+  if ! output="$(printf '%s' "$script" | "$ACPIEXEC_BIN" -dt "$AML_FILE" 2>/dev/null)"; then
     die "acpiexec invocation failed"
   fi
 
